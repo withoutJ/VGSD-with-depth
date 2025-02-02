@@ -26,9 +26,6 @@ import importlib
 from utils import backup_code
 from torch.utils.tensorboard import SummaryWriter
 import os 
-
-from loss.monodepth_loss import MonodepthLoss
-
 os.CUDA_VISIBLE_DEVICES = '0'
 
 cudnn.deterministic = True
@@ -90,7 +87,7 @@ def main(cmd_args):
         'multi-scale': None,
         # 'gpu': '4,5',
         # 'multi-GPUs': True,
-        'fp16': False,
+        'fp16': True,
         'warm_up_epochs': 1,  #### NOTE: default is 3
         'seed': 2023
     }
@@ -221,21 +218,6 @@ def main(cmd_args):
         train_iterator = tqdm(train_loader, total=len(train_loader))
         # train_iterator = tqdm(train_loader, desc=f'Epoch: {curr_epoch}', ncols=100, ascii=' =', bar_format='{l_bar}{bar}|')
         # tqdm(train_loader, total=len(train_loader))
-
-        monodepth_loss_args = {
-            "min_depth": 0.1,
-            "max_depth": 100,
-            "test_min_depth": 1.0e-3,
-            "test_max_depth": 80,
-            "disparity_smoothness": 1.0e-3,
-            "no_ssim": False,
-            "avg_reprojection": False,
-            "disable_automasking": False
-            }
-
-        monodepth_loss_calculator_train = MonodepthLoss(**monodepth_loss_args, batch_size=batch_size, is_train=True)
-        monodepth_loss_calculator_val = MonodepthLoss(**monodepth_loss_args, batch_size=batch_size, is_train=False)
-
         
         for i, sample in enumerate(train_iterator):
             exemplar, exemplar_gt, query, query_gt = sample['exemplar'].cuda(), sample['exemplar_gt'].cuda(), sample['query'].cuda(), sample['query_gt'].cuda()

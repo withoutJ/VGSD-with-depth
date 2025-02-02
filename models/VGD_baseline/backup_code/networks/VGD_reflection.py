@@ -10,12 +10,10 @@ import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 from einops import rearrange
 
-from .utils import get_posenet
 
 class VGD_Network(nn.Module):
     def __init__(self, pretrained_path=None, num_classes=1): 
         super(VGD_Network, self).__init__()
-
         self.encoder = DeepLabV3()
         
         if pretrained_path is not None:
@@ -50,12 +48,6 @@ class VGD_Network(nn.Module):
                            self.refine_encoder1, self.refine_decoder1, self.attn1_new,
                            self.contrast1_new
                            )
-
-        pose_models = get_posenet("resnet18", backbone_pretraining="imnet", pose_pretraining="mono_cityscapes_1024x512_r101dil_aspp_dec5", num_pose_frames=3)
-
-        self.pose_encoder = pose_models["pose_encoder"]
-        self.pose_decoder = pose_models["pose_decoder"]
-
 
     def forward(self, input1, input2, input3):
         input_size = input1.size()[2:]

@@ -1,0 +1,56 @@
+{'max_epoch': 15, 'last_iter': 0, 'finetune_lr': 5e-05, 'scratch_lr': 0.0005, 'weight_decay': 0.0005, 'momentum': 0.9, 'snapshot': '', 'scale': 416, 'multi-scale': None, 'fp16': False, 'warm_up_epochs': 1, 'seed': 2023}
+
+Namespace(exp='VGD_baseline', model='VGD_baseline', resume=None, reflection_root='../VGD_dataset/reflection/train/', gpu='0', batchsize=2, scale=416, bestonly=False, loss_ref_penalty=1, finetune_lr=5e-05, scratch_lr=0.0005)
+Adam (
+Parameter Group 0
+    amsgrad: False
+    betas: (0.9, 0.99)
+    capturable: False
+    differentiable: False
+    eps: 6e-08
+    foreach: None
+    fused: None
+    initial_lr: 5e-05
+    lr: 0.0
+    maximize: False
+    weight_decay: 0.0005
+
+Parameter Group 1
+    amsgrad: False
+    betas: (0.9, 0.99)
+    capturable: False
+    differentiable: False
+    eps: 6e-08
+    foreach: None
+    fused: None
+    initial_lr: 0.0005
+    lr: 0.0
+    maximize: False
+    weight_decay: 0.0005
+)
+
+epochs:1, iter: 2, hinge1_f: 1.4052085, hinge2_f: 1.3938995, hinge3_f: 1.3546515, hinge1: 1.4499685, hinge2: 1.5214285, hinge3: 1.5548165, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 3, hinge1_f: 1.4688055, hinge2_f: 1.4575505, hinge3_f: 1.4168445, hinge1: 1.7755375, hinge2: 1.8045585, hinge3: 1.8195575, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 4, hinge1_f: 1.4882255, hinge2_f: 1.4810605, hinge3_f: 1.4782645, hinge1: 1.7367625, hinge2: 1.7466405, hinge3: 1.7256485, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 5, hinge1_f: 1.4641275, hinge2_f: 1.4639135, hinge3_f: 1.4475895, hinge1: 1.6799605, hinge2: 1.6965405, hinge3: 1.6878635, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 6, hinge1_f: 1.4761935, hinge2_f: 1.4766695, hinge3_f: 1.4582475, hinge1: 1.6788795, hinge2: 1.6882715, hinge3: 1.7135015, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 7, hinge1_f: 1.4798275, hinge2_f: 1.4820565, hinge3_f: 1.4691615, hinge1: 1.7019725, hinge2: 1.7093265, hinge3: 1.7252285, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 8, hinge1_f: 1.4755445, hinge2_f: 1.4743385, hinge3_f: 1.4692835, hinge1: 1.7216765, hinge2: 1.7304425, hinge3: 1.7194895, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 9, hinge1_f: 1.4623045, hinge2_f: 1.4622735, hinge3_f: 1.4580975, hinge1: 1.7028235, hinge2: 1.6996105, hinge3: 1.6952105, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 10, hinge1_f: 1.4568145, hinge2_f: 1.4574195, hinge3_f: 1.4534775, hinge1: 1.7171575, hinge2: 1.7164735, hinge3: 1.7067695, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 11, hinge1_f: 1.4519195, hinge2_f: 1.4554575, hinge3_f: 1.4499925, hinge1: 1.7004645, hinge2: 1.7017775, hinge3: 1.6814275, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 12, hinge1_f: 1.4535175, hinge2_f: 1.4573755, hinge3_f: 1.4574555, hinge1: 1.6511565, hinge2: 1.6522705, hinge3: 1.6439885, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 13, hinge1_f: 1.4568655, hinge2_f: 1.4598565, hinge3_f: 1.4651795, hinge1: 1.6446555, hinge2: 1.6472435, hinge3: 1.6575715, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 14, hinge1_f: 1.4585165, hinge2_f: 1.4622345, hinge3_f: 1.4608795, hinge1: 1.6679415, hinge2: 1.6667085, hinge3: 1.6619055, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 15, hinge1_f: 1.4616765, hinge2_f: 1.4655005, hinge3_f: 1.4627935, hinge1: 1.6791425, hinge2: 1.6719255, hinge3: 1.6733975, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 16, hinge1_f: 1.4615725, hinge2_f: 1.4638225, hinge3_f: 1.4645105, hinge1: 1.6484855, hinge2: 1.6448305, hinge3: 1.6717795, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 17, hinge1_f: 1.4650565, hinge2_f: 1.4672985, hinge3_f: 1.4679335, hinge1: 1.6771375, hinge2: 1.6734695, hinge3: 1.6953615, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 18, hinge1_f: 1.4604155, hinge2_f: 1.4602505, hinge3_f: 1.4630905, hinge1: 1.6612275, hinge2: 1.6572125, hinge3: 1.6805175, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 19, hinge1_f: 1.4539135, hinge2_f: 1.4536505, hinge3_f: 1.4609045, hinge1: 1.6593865, hinge2: 1.6566895, hinge3: 1.6663995, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 20, hinge1_f: 1.4497275, hinge2_f: 1.4496025, hinge3_f: 1.4600145, hinge1: 1.6631255, hinge2: 1.6572525, hinge3: 1.6555485, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 21, hinge1_f: 1.4488695, hinge2_f: 1.4478185, hinge3_f: 1.4564075, hinge1: 1.6691575, hinge2: 1.6593285, hinge3: 1.6591485, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 22, hinge1_f: 1.4564465, hinge2_f: 1.4556945, hinge3_f: 1.4626955, hinge1: 1.6824445, hinge2: 1.6688325, hinge3: 1.6705065, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 23, hinge1_f: 1.4502695, hinge2_f: 1.4493935, hinge3_f: 1.4584125, hinge1: 1.6804555, hinge2: 1.6687955, hinge3: 1.6675645, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 24, hinge1_f: 1.4521755, hinge2_f: 1.4511245, hinge3_f: 1.4587045, hinge1: 1.6673845, hinge2: 1.6567315, hinge3: 1.6593625, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 25, hinge1_f: 1.4531805, hinge2_f: 1.4518645, hinge3_f: 1.4582925, hinge1: 1.6726395, hinge2: 1.6615235, hinge3: 1.6675425, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
+epochs:1, iter: 26, hinge1_f: 1.4559075, hinge2_f: 1.4541805, hinge3_f: 1.4599655, hinge1: 1.6744205, hinge2: 1.6656205, hinge3: 1.6701485, ref1: 0.0000005, ref2: 0.0000005, ref3: 0.0000005, edge1: 0.0000005, edge2: 0.0000005, edge3: 0.0000005,lr: 0.0000008. group[0].lr: 0.00000000, group[1].lr: 0.00000000
