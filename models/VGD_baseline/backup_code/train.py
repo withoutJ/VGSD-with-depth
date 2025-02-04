@@ -26,6 +26,9 @@ import importlib
 from utils import backup_code
 from torch.utils.tensorboard import SummaryWriter
 import os 
+
+from loss.monodepth_loss import MonodepthLoss
+
 os.CUDA_VISIBLE_DEVICES = '0'
 
 cudnn.deterministic = True
@@ -87,9 +90,10 @@ def main(cmd_args):
         'multi-scale': None,
         # 'gpu': '4,5',
         # 'multi-GPUs': True,
-        'fp16': True,
+        'fp16': False,
         'warm_up_epochs': 1,  #### NOTE: default is 3
-        'seed': 2023
+        'seed': 2023,
+        'monodepth_lambda': 0.0
     }
     # fix random seed
     np.random.seed(args['seed'])
@@ -218,6 +222,30 @@ def main(cmd_args):
         train_iterator = tqdm(train_loader, total=len(train_loader))
         # train_iterator = tqdm(train_loader, desc=f'Epoch: {curr_epoch}', ncols=100, ascii=' =', bar_format='{l_bar}{bar}|')
         # tqdm(train_loader, total=len(train_loader))
+
+        monodepth_options = {
+            "frame_ids": [0,-1,1],
+            "num_scales": 1,
+            "height": args["scale"],
+            "width": args["scale"]
+        }
+
+        monodepth_loss_args = {
+            "min_depth": 0.1,
+            "max_depth": 100,
+            "test_min_depth": 1.0e-3,
+            "test_max_depth": 80,
+            "disparity_smoothness": 1.0e-3,
+            "no_ssim": False,
+            "avg_reprojection": False,
+            "disable_automasking": False
+            }
+        
+        monodepth_loss_args.update(monodepth_options)
+
+        monodepth_loss_calculator_train = MonodepthLoss(**monodepth_loss_args, batch_size=batch_size, is_train=True)
+        monodepth_loss_calculator_val = MonodepthLoss(**monodepth_loss_args, batch_size=batch_size, is_train=False)
+
         
         for i, sample in enumerate(train_iterator):
             exemplar, exemplar_gt, query, query_gt = sample['exemplar'].cuda(), sample['exemplar_gt'].cuda(), sample['query'].cuda(), sample['query_gt'].cuda()
@@ -253,9 +281,18 @@ def main(cmd_args):
             
             loss_seg = loss_hinge1 + loss_hinge2 + loss_hinge3 + loss_hinge_examplar + loss_hinge_query + loss_hinge_other
             # loss_ref = ref_loss1 + ref_loss2 + ref_loss3
+
             loss = loss_seg #+ loss_ref 
 
             scaler.scale(loss).backward()
+            
+            # TODO Construct inputs and outputs dictioniaries correctly
+            if args['monodepth_lambda'] > 0:
+                monodepth_loss_calculator_train.generate_images_pred(inputs, outputs)
+                mono_losses = monodepth_loss_calculator_train.compute_losses(inputs, outputs)
+                mono_loss = args['monodepth_lambda'] * mono_losses["loss"]
+
+                scaler.scale(mono_loss).backward()
 
             torch.nn.utils.clip_grad_norm_(net.parameters(), 12)  # gradient clip
             scaler.step(optimizer)  # change gradient

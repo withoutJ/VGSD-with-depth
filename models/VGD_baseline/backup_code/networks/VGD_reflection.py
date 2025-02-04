@@ -10,10 +10,16 @@ import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 from einops import rearrange
 
+from .utils import get_posenet
+from .joint_segmentation_depth_decoder import PAD
+from .joint_segmentation_depth import get_segmentation_network
+
+
 
 class VGD_Network(nn.Module):
-    def __init__(self, pretrained_path=None, num_classes=1): 
+    def __init__(self, pretrained_path=None, num_classes=1, height=416, width=416): 
         super(VGD_Network, self).__init__()
+
         self.encoder = DeepLabV3()
         
         if pretrained_path is not None:
@@ -48,6 +54,17 @@ class VGD_Network(nn.Module):
                            self.refine_encoder1, self.refine_decoder1, self.attn1_new,
                            self.contrast1_new
                            )
+
+        pose_models = get_posenet("resnet18", backbone_pretraining="imnet", pose_pretraining="", num_pose_frames=3)
+
+        self.pose_encoder = pose_models["pose_encoder"]
+        self.pose_decoder = pose_models["pose"]
+
+        # Change output of the fifth layer of encoder with output of transformer blocks
+        num_ch_enc = [64, 256, 512, 1024, 96]
+        self.mtl_decoder = get_segmentation_network("mtl_pad", num_ch_enc, (height, width),
+                                                         num_classes, {}, {})
+
 
     def forward(self, input1, input2, input3):
         input_size = input1.size()[2:]
@@ -94,13 +111,22 @@ class VGD_Network(nn.Module):
         query_hx5 = self.contrast1_new(query_hx5)
         other_hx5 = self.contrast1_new(other_hx5)
         exp_hx5, query_hx5, other_hx5 = self.attn1_new(exp_hx5, query_hx5, other_hx5) 
+
+
+        exp_features = [exemplar0, low_exemplar1, exemplar2, exemplar3, exp_hx5]
+        query_features = [query0, low_query1, query2, query3, query_hx5]
+        other_features = [other0, low_other1, other2, other3, other_hx5]
+
+        outputs_exp_decoder = self.mtl_decoder(exp_features)
+        outputs_query_decoder = self.mtl_decoder(query_features)
+        outputs_other_decoder = self.mtl_decoder(other_features)
+
+
+
         exemplar_final, exemplar_ref = self.refine_decoder1(exemplar0, low_exemplar1, exemplar2, exemplar3, exemplar4, exp_hx5)
         query_final, query_ref = self.refine_decoder1(query0, low_query1, query2, query3, query4, query_hx5)
         other_final, other_ref = self.refine_decoder1(other0, low_other1, other2, other3, other4, other_hx5) 
 
-        # print(exemplar_final.shape, exemplar_ref.shape)
-        # print(query_final.shape, query_ref.shape)
-        # print(other_final.shape, other_ref.shape)
 
         if self.training:
             return exemplar_pre, query_pre, other_pre, \
