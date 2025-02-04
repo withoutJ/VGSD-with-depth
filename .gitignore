@@ -7,5 +7,4 @@ __pycache__
 *.pyc
 ./models/*
 
-VGSD.pth
-resnext_101_32x4d.pth
+*.pth
