@@ -72,7 +72,7 @@ def get_posenet(backbone_name, backbone_pretraining, pose_pretraining, num_pose_
             if mn not in models:
                 continue
             download_model_if_doesnt_exist(pose_pretraining)
-            path = os.path.join("networks", pose_pretraining, "{}.pth".format(mn))
+            path = os.path.join("models", pose_pretraining, "{}.pth".format(mn))
             loaded_dict = torch.load(path, map_location=torch.device(device))
             filtered_dict = {k: v for k, v in loaded_dict.items() if k in models[mn].state_dict()}
             models[mn].load_state_dict(filtered_dict)
@@ -88,7 +88,7 @@ def get_depth_decoder(depth_pretraining, num_ch_enc, scales=range(4), **kwargs):
     if depth_pretraining != 'none':
         print('Load ' + depth_pretraining + 'depth weights')
         download_model_if_doesnt_exist(depth_pretraining)
-        model_path = os.path.join("checkpoints", depth_pretraining, "depth.pth")
+        model_path = os.path.join("models", depth_pretraining, "depth.pth")
         loaded_dict = torch.load(model_path, map_location=torch.device(device))
         filtered_dict = loaded_dict
         # filtered_dict = {k: v for k, v in loaded_dict.items() if k in depth_decoder.state_dict()}
@@ -131,7 +131,7 @@ def download_model_if_doesnt_exist(model_name, download_dir=None):
              ""),
     }
     if download_dir is None:
-        download_dir = "networks"
+        download_dir = "models"
         download_dir = os.path.expandvars(download_dir)
         download_dir = download_dir.replace('$SLURM_JOB_ID/', '')
     os.makedirs(download_dir, exist_ok=True)

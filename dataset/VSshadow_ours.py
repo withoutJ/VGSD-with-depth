@@ -21,6 +21,8 @@ class CrossPairwiseImg(data.Dataset):
     def __init__(self, root, is_train=True, random_flip = False, enable_color_aug=False, height=416, width=416, crop_h=416, crop_w=416):
         self.img_root, self.video_root = self.split_root(root)
 
+
+
         self.is_train = is_train
         self.enable_color_aug = enable_color_aug
         self.random_flip = random_flip
