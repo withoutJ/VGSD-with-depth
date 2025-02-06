@@ -13,12 +13,15 @@ from einops import rearrange
 from .utils import get_posenet
 from .joint_segmentation_depth_decoder import PAD
 from .joint_segmentation_depth import get_segmentation_network
+from .monodepth_layers import transformation_from_parameters
 
 
 
 class VGD_Network(nn.Module):
     def __init__(self, pretrained_path=None, num_classes=1, height=416, width=416): 
         super(VGD_Network, self).__init__()
+
+        self.frame_ids = [0, 1, -1]
 
         self.encoder = DeepLabV3()
         
@@ -47,7 +50,7 @@ class VGD_Network(nn.Module):
         self.refine_decoder1 = RefNet_decoder()
 
         self.attn1_new = frame_attention(dim=96)
-        self.contrast1_new = ContrastModule(planes=128) 
+        self.contrast1_new = ContrastModule(planes=128)
 
         initialize_weights(self.ra_attention_low, self.ra_attention_cross, self.project, 
                            self.final_pre, 
@@ -58,15 +61,32 @@ class VGD_Network(nn.Module):
         pose_models = get_posenet("resnet18", backbone_pretraining="imnet", pose_pretraining="", num_pose_frames=3)
 
         self.pose_encoder = pose_models["pose_encoder"]
-        self.pose_decoder = pose_models["pose"]
+        self.pose = pose_models["pose"]
 
         # Change output of the fifth layer of encoder with output of transformer blocks
         num_ch_enc = [64, 256, 512, 1024, 96]
         self.mtl_decoder = get_segmentation_network("mtl_pad", num_ch_enc, (height, width),
                                                          num_classes, {}, {})
 
+    def predict_poses(self, inputs):
+        """Predict poses between input frames for monocular sequences.
+        """
+        outputs = {}
+        # Here we input all frames to the pose net (and predict all poses) together
+        pose_inputs = torch.cat([inputs[("color_aug", i, 0)] for i in self.frame_ids], 1)
+        pose_inputs = [self.pose_encoder(pose_inputs)]
+        axisangle, translation = self.pose(pose_inputs)
 
-    def forward(self, input1, input2, input3):
+        for i, f_i in enumerate(self.frame_ids[1:]):
+            outputs[("axisangle", 0, f_i)] = axisangle
+            outputs[("translation", 0, f_i)] = translation
+            outputs[("cam_T_cam", 0, f_i)] = transformation_from_parameters(
+                axisangle[:, i], translation[:, i])
+
+        return outputs
+
+    def forward(self, input1, input2, input3, inputs):
+
         input_size = input1.size()[2:]
         exemplar0, low_exemplar1, exemplar2, exemplar3, exemplar4, exemplar = self.encoder(input1)
         query0, low_query1, query2, query3, query4, query = self.encoder(input2)
@@ -117,24 +137,31 @@ class VGD_Network(nn.Module):
         query_features = [query0, low_query1, query2, query3, query_hx5]
         other_features = [other0, low_other1, other2, other3, other_hx5]
 
-        outputs_exp_decoder = self.mtl_decoder(exp_features)
-        outputs_query_decoder = self.mtl_decoder(query_features)
-        outputs_other_decoder = self.mtl_decoder(other_features)
+        outputs_exp = self.mtl_decoder(exp_features)
+        outputs_query = self.mtl_decoder(query_features)
+        outputs_other = self.mtl_decoder(other_features)
 
+        poses = self.predict_poses(inputs)
 
+        exemplar_final = outputs_exp["semantics"]
+        query_final = outputs_query["semantics"]
+        other_final = outputs_other["semantics"]
 
-        exemplar_final, exemplar_ref = self.refine_decoder1(exemplar0, low_exemplar1, exemplar2, exemplar3, exemplar4, exp_hx5)
-        query_final, query_ref = self.refine_decoder1(query0, low_query1, query2, query3, query4, query_hx5)
-        other_final, other_ref = self.refine_decoder1(other0, low_other1, other2, other3, other4, other_hx5) 
+        # exemplar_final, exemplar_ref = self.refine_decoder1(exemplar0, low_exemplar1, exemplar2, exemplar3, exemplar4, exp_hx5)
+
+        # query_final, query_ref = self.refine_decoder1(query0, low_query1, query2, query3, query4, query_hx5)
+        # other_final, other_ref = self.refine_decoder1(other0, low_other1, other2, other3, other4, other_hx5) 
 
 
         if self.training:
             return exemplar_pre, query_pre, other_pre, \
-                exemplar_final, query_final, other_final
-                    #exemplar_ref, query_ref, other_ref
+                exemplar_final, query_final, other_final, \
+                    outputs_exp, outputs_query, outputs_other, \
+                        poses
         else:
             # return exemplar_final, query_final, other_final
-            return exemplar_final, exemplar_ref, exemplar_pre 
+            return exemplar_final
+
         
         
 class DWConv(nn.Module):

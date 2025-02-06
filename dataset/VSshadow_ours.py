@@ -10,22 +10,56 @@ import pdb
 
 from glob import glob
 
+from torchvision.transforms import v2 as transforms
+
+
 def listdirs_only(folder):
     return [d for d in os.listdir(folder) if os.path.isdir(os.path.join(folder, d))]
 
 # return image triple pairs in video and return single image
 class CrossPairwiseImg(data.Dataset):
-    def __init__(self, root, joint_transform=None, img_transform=None, target_transform=None, 
-                 reflection_root=None):
+    def __init__(self, root, is_train=True, random_flip = False, enable_color_aug=False, height=416, width=416, crop_h=416, crop_w=416):
         self.img_root, self.video_root = self.split_root(root)
-        self.joint_transform = joint_transform
-        self.img_transform = img_transform
-        self.target_transform = target_transform
+
+        self.is_train = is_train
+        self.enable_color_aug = enable_color_aug
+        self.random_flip = random_flip
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.input_folder = 'JPEGImages'
         self.label_folder = 'SegmentationClassPNG'
         self.img_ext = '.jpg'
         self.label_ext = '.png'
+
+        self.full_res_shape = None
+
+        self.height = height
+        self.width = width
+        if crop_h is None or crop_w is None or not self.is_train:
+            self.crop_h = self.height
+            self.crop_w = self.width
+        else:
+            self.crop_h = crop_h
+            self.crop_w = crop_w
+     
+
+        self.frame_idxs = [0, 1, -1]
+        self.num_scales = 4
+
+        # TODO Figure out real camera intrincis with COLMAP (these ones are for CityScapes)
+        self.fx = 2262.52
+        self.fy = 2265.3017905988554
+        self.u0 = 1096.98
+        self.v0 = 513.137
+        
+        self.to_tensor = transforms.ToTensor()
+        self.resize = {}
+        for i in range(self.num_scales):
+            s = 2 ** i
+            self.resize[i] = transforms.Resize((self.crop_h // s, self.crop_w // s))
+
+        self.resize_full = transforms.Resize((self.height, self.width))
 
         print(self.video_root)
 
@@ -38,8 +72,6 @@ class CrossPairwiseImg(data.Dataset):
             self.singleImg_list = self.generateImgFromSingle(self.img_root)
             print('Total single image frames is {}.'.format(len(self.singleImg_list)))
         
-        self.reflection_root = reflection_root
-        print('reflection_root: ', reflection_root)
         print(f"{self.video_root[0][0]} has {len(os.listdir(self.video_root[0][0]))} videos.")
         
         
@@ -104,56 +136,35 @@ class CrossPairwiseImg(data.Dataset):
             single_image = Image.open(single_image_path).convert('RGB')
             single_gt = Image.open(single_gt_path).convert('L')
 
-        if self.reflection_root is not None:
-            exemplar_ref = self.get_ref(exemplar_path)
-            query_ref = self.get_ref(query_path)
-            other_ref = self.get_ref(other_path)
+        self.full_res_shape = exemplar.size
 
-        # transformation
-        if self.joint_transform is not None:
-            if self.reflection_root is None:
-                exemplar, exemplar_gt = self.joint_transform(exemplar, exemplar_gt, manual_random, None)
-                query, query_gt = self.joint_transform(query, query_gt, manual_random, None)
-                other, other_gt = self.joint_transform(other, other_gt, None, None)
-            else:
-                exemplar, exemplar_gt, exemplar_ref = self.joint_transform(exemplar, exemplar_gt, manual_random, exemplar_ref)
-                query, query_gt, query_ref = self.joint_transform(query, query_gt, manual_random, query_ref)
-                other, other_gt, other_ref = self.joint_transform(other, other_gt, None, other_ref)
-            if len(self.img_root) > 0:
-                single_image, single_gt = self.joint_transform(single_image, single_gt)
-        if self.img_transform is not None:
-            exemplar = self.img_transform(exemplar)
-            query = self.img_transform(query)
-            other = self.img_transform(other)
-            if len(self.img_root) > 0:
-                single_image = self.img_transform(single_image)
-        if self.target_transform is not None:
-            exemplar_gt = self.target_transform(exemplar_gt)
-            query_gt = self.target_transform(query_gt)
-            other_gt = self.target_transform(other_gt)
-            if len(self.img_root) > 0:
-                single_gt = self.target_transform(single_gt)
-            if self.reflection_root is not None:
-                exemplar_ref = self.target_transform(exemplar_ref)
-                query_ref = self.target_transform(query_ref)
-                other_ref = self.target_transform(other_ref)
-            # exemplar_edge = self.target_transform(exemplar_edge)
-            # query_edge = self.target_transform(query_edge)
-            # other_edge = self.target_transform(other_edge)
+        do_color_aug = self.is_train and random.random() < 0.5 and self.enable_color_aug
+        do_flip = self.is_train and random.random() < 0.5 and self.random_flip
 
-        if len(self.img_root) > 0:
-            sample = {'exemplar': exemplar, 'exemplar_gt': exemplar_gt, 'query': query, 'query_gt': query_gt,
-                  'other': other, 'other_gt': other_gt, 'single_image': single_image, 'single_gt': single_gt}
-        else:
-            sample = {'exemplar': exemplar, 'exemplar_gt': exemplar_gt, 
-                      'query': query, 'query_gt': query_gt,
-                      'other': other, 'other_gt': other_gt
-                      }
-        if self.reflection_root is not None:   
-            sample['exemplar_ref'] = exemplar_ref * exemplar_gt
-            sample['query_ref'] = query_ref * query_gt
-            sample['other_ref'] = other_ref * other_gt   ### multi gt mask here !! 
+        if do_flip:
+            exemplar = exemplar.transpose(Image.FLIP_LEFT_RIGHT)
+            query = query.transpose(Image.FLIP_LEFT_RIGHT)
+            other = other.transpose(Image.FLIP_LEFT_RIGHT)
+            exemplar_gt = exemplar_gt.transpose(Image.FLIP_LEFT_RIGHT)
+            query_gt = query_gt.transpose(Image.FLIP_LEFT_RIGHT)
+            other_gt = other_gt.transpose(Image.FLIP_LEFT_RIGHT)
+
+        sample = {
+            ("color", 0, -1): exemplar,
+            ("color", 1, -1): query,
+            ("color", -1, -1): other,
+            ("gt", 0): exemplar_gt,
+            ("gt", 1): query_gt,
+            ("gt", -1): other_gt
+        }
+
+
+        if self.is_train:
+            sample = self.random_crop(sample, do_flip)
+
+        self.preprocess(sample, do_color_aug)
             
+
         sample['exemplar_path'] = exemplar_path
         sample['query_path'] = query_path
         sample['other_path'] = other_path 
@@ -213,4 +224,96 @@ class CrossPairwiseImg(data.Dataset):
 
     def __len__(self):
         return len(self.videoImg_list)//2*2
+    
+    def random_crop(self, inputs, do_flip):
+        w, h = inputs[("color", 0, -1)].size
+        th, tw = self.crop_h, self.crop_w
+
+        # assert h <= w and th <= tw
+        if w < tw or h < th:
+
+            raise NotImplementedError
+
+
+        x1 = random.randint(0, w - tw)
+        y1 = random.randint(0, h - th)
+        crop_region = (x1, y1, x1 + tw, y1 + th)
+
+        for i in self.frame_idxs:
+            img = inputs[("color", i, -1)]
+            inputs[("color_full", i, -1)] = img
+            inputs[("gt_full", i)] = inputs[("gt", i)]
+            if w != tw or h != th:
+                inputs[("color", i, -1)] = img.crop(crop_region)
+                inputs[("gt", i)] = inputs[("gt", i)].crop(crop_region)
+                
+
+        # adjusting intrinsics to match each scale in the pyramid
+        for scale in range(self.num_scales):
+            K = self.get_K(x1, y1, do_flip)
+
+            K[0, :] /= (2 ** scale)
+            K[1, :] /= (2 ** scale)
+
+            inv_K = np.linalg.pinv(K)
+
+            inputs[("K", scale)] = torch.from_numpy(K)
+            inputs[("inv_K", scale)] = torch.from_numpy(inv_K)
+
+        return inputs
+
+    def preprocess(self, inputs, do_color_aug = False):
+        """Resize colour images to the required scales and augment if required
+
+        We create the color_aug object in advance and apply the same augmentation to all
+        images in this item. This ensures that all images input to the pose network receive the
+        same augmentation.
+        """
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        if do_color_aug:
+            color_aug = transforms.ColorJitter.get_params((0.8, 1.2), (0.8, 1.2), (0.8, 1.2), (-0.1, 0.1))
+        else:
+            color_aug = lambda x: x
+
+        for k in list(inputs):
+            if len(k) == 3:
+                n, im, i = k
+                if n == "color":
+                    for i in range(self.num_scales):
+                        inputs[(n, im, i)] = self.resize[i](inputs[(n, im, i - 1)])
+                if n == "color_full":
+                    inputs[(n, im, 0)] = self.resize_full(inputs[(n, im, -1)])
+            elif len(k) == 2:
+                n, im = k
+                if n == "gt_full":
+                    inputs[("gt_resized", im)] = self.resize_full(inputs[(n, im)])
+
+
+        for k in list(inputs):
+            f = inputs[k]
+            if len(k) == 3:
+                n, im, i = k
+                if "color" in n:
+                    inputs[(n, im, i)] = self.to_tensor(f)
+                    if i == 0:
+                        processed_f = normalize(self.to_tensor(color_aug(f)))
+                        inputs[(n + "_aug", im, i)] = processed_f
+            elif len(k) == 2:
+                n, im = k
+                if "gt" in n:
+                    inputs[(n, im)] = self.to_tensor(f)
+            
+    
+
+    def get_K(self, u_offset, v_offset, do_flip):
+        u0 = self.u0
+        v0 = self.v0
+        if do_flip:
+            u0 = self.full_res_shape[0] - u0
+            v0 = self.full_res_shape[1] - v0
+
+        return np.array([[self.fx, 0, u0 - u_offset, 0],
+                         [0, self.fy, v0 - v_offset, 0],
+                         [0, 0, 1, 0],
+                         [0, 0, 0, 1]], dtype=np.float32)
 

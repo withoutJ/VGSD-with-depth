@@ -93,7 +93,7 @@ def main(cmd_args):
         'fp16': False,
         'warm_up_epochs': 1,  #### NOTE: default is 3
         'seed': 2023,
-        'monodepth_lambda': 0.0
+        'monodepth_lambda': 0.1
     }
     # fix random seed
     np.random.seed(args['seed'])
@@ -108,33 +108,24 @@ def main(cmd_args):
         torch.cuda.set_device(0)
         batch_size = train_batch_size
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     print('batch_size: {}'.format(batch_size))
     print('batch_size: {}'.format(batch_size))
     print(args)
 
-    joint_transform = joint_transforms.Compose([
-        joint_transforms.RandomHorizontallyFlip(),
-        joint_transforms.Resize((args['scale'], args['scale']))
-    ])
-    val_joint_transform = joint_transforms.Compose([
-        joint_transforms.Resize((args['scale'], args['scale']))
-    ])
-
-    img_transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(_MEAN, _STD)
-    ])
-    target_transform = transforms.ToTensor()
-    to_pil = transforms.ToPILImage()
 
     print('=====>Dataset loading<======')
     training_root = [ViSha_training_root] # training_root should be a list form, like [datasetA, datasetB, datasetC], here we use only one dataset.
-    train_set = CrossPairwiseImg(training_root, joint_transform, img_transform, target_transform)
+    train_set = CrossPairwiseImg(training_root)
+    train_subset = torch.utils.data.Subset(train_set, range(100))
+    train_loader_subset = DataLoader(train_subset, batch_size=batch_size, num_workers=1, shuffle=False)
     train_loader = DataLoader(train_set, ##### NOTE: more training data!!!!
                             batch_size=batch_size,  drop_last=True, num_workers=4,  
                             shuffle=True)
 
-    val_set = CrossPairwiseImg([ViSha_test_root], val_joint_transform, img_transform, target_transform)
+
+    val_set = CrossPairwiseImg([ViSha_test_root])
     val_loader = DataLoader(val_set, batch_size=batch_size, num_workers=4, shuffle=True)   ## shuffle for better visualization
 
     print("max epoch:{}".format(args['max_epoch']))
@@ -142,7 +133,7 @@ def main(cmd_args):
     ce_loss = nn.CrossEntropyLoss()
 
     log_path = os.path.join(ckpt_path, exp_name, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + '.txt')
-    val_log_path = os.path.join(ckpt_path, exp_name, 'val_log' + str(datetime.datetime.now()) + '.txt')
+    val_log_path = os.path.join(ckpt_path, exp_name, 'val_log' + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + '.txt')
     writer = SummaryWriter(log_dir=os.path.join(ckpt_path, exp_name, 'board'))
 
     print('=====>Prepare Network {}<======'.format(exp_name))
@@ -192,8 +183,6 @@ def main(cmd_args):
         optimizer.load_state_dict(checkpoint['optimizer'])  
         scheduler.load_state_dict(checkpoint['scheduler'])
         curr_epoch = checkpoint['curr_epoch'] + 1  ###
-        if args['fp16']:
-            amp.load_state_dict(checkpoint['amp'])
         print('=====>Loaded checkpoint {}<======'.format(cmd_args.resume))
     else:
         curr_epoch = 1 
@@ -219,16 +208,20 @@ def main(cmd_args):
         loss_record1, loss_record2, loss_record3, loss_record4 = AvgMeter(), AvgMeter(), AvgMeter(), AvgMeter()
         loss_record5, loss_record6, loss_record7, loss_record8, loss_record9 = AvgMeter(), AvgMeter(), AvgMeter(), AvgMeter(), AvgMeter()
         loss_record10, loss_record11, loss_record12, loss_record13, loss_record14 = AvgMeter(), AvgMeter(), AvgMeter(), AvgMeter(), AvgMeter()
-        train_iterator = tqdm(train_loader, total=len(train_loader))
+        mono_loss_record = AvgMeter()
+        train_iterator = tqdm(train_loader_subset, total=len(train_loader_subset))
         # train_iterator = tqdm(train_loader, desc=f'Epoch: {curr_epoch}', ncols=100, ascii=' =', bar_format='{l_bar}{bar}|')
         # tqdm(train_loader, total=len(train_loader))
 
         monodepth_options = {
-            "frame_ids": [0,-1,1],
-            "num_scales": 1,
+            "frame_ids": [0,1,-1],
+            "num_scales": 4,
             "height": args["scale"],
-            "width": args["scale"]
+            "width": args["scale"],
+            "crop_h": args["scale"],
+            "crop_w": args["scale"]
         }
+
 
         monodepth_loss_args = {
             "min_depth": 0.1,
@@ -248,8 +241,14 @@ def main(cmd_args):
 
         
         for i, sample in enumerate(train_iterator):
-            exemplar, exemplar_gt, query, query_gt = sample['exemplar'].cuda(), sample['exemplar_gt'].cuda(), sample['query'].cuda(), sample['query_gt'].cuda()
-            other, other_gt = sample['other'].cuda(), sample['other_gt'].cuda()
+            for k, v in sample.items():
+                if torch.is_tensor(v):
+                    sample[k] = v.to(device, non_blocking=True)
+
+            exemplar, exemplar_gt, query, query_gt = sample[("color_aug", 0, 0)], sample[("gt", 0)], sample[("color_aug", 1, 0)], sample[("gt", 1)]
+            other, other_gt = sample[("color_aug", -1, 0)], sample[("gt", -1)]
+
+
             # exemplar_ref_gt, query_ref_gt, other_ref_gt = sample['exemplar_ref'].cuda(), sample['query_ref'].cuda(), sample['other_ref'].cuda()
 
             B = exemplar.size(0)
@@ -258,7 +257,9 @@ def main(cmd_args):
             
             with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=args['fp16']):
                 exemplar_pre, query_pre, other_pre, \
-                    exemplar_final, query_final, other_final = net(exemplar, query, other)
+                    exemplar_final, query_final, other_final, \
+                        outputs_exp, outputs_query, outputs_other, \
+                             poses = net(exemplar, query, other, sample)
             
             # #### x gt mask 
             # ref_loss1 = torch.sum(torch.mean(((exemplar_ref - exemplar_ref_gt)**2).view(B, -1), 1))
@@ -284,12 +285,12 @@ def main(cmd_args):
 
             loss = loss_seg #+ loss_ref 
 
-            scaler.scale(loss).backward()
+            scaler.scale(loss).backward(retain_graph=True)
             
-            # TODO Construct inputs and outputs dictioniaries correctly
+            outputs_exp.update(poses)
             if args['monodepth_lambda'] > 0:
-                monodepth_loss_calculator_train.generate_images_pred(inputs, outputs)
-                mono_losses = monodepth_loss_calculator_train.compute_losses(inputs, outputs)
+                monodepth_loss_calculator_train.generate_images_pred(sample, outputs_exp)
+                mono_losses = monodepth_loss_calculator_train.compute_losses(sample, outputs_exp)
                 mono_loss = args['monodepth_lambda'] * mono_losses["loss"]
 
                 scaler.scale(mono_loss).backward()
@@ -304,13 +305,17 @@ def main(cmd_args):
             loss_record4.update(loss_hinge1.item(), batch_size)
             loss_record5.update(loss_hinge2.item(), batch_size)
             loss_record6.update(loss_hinge3.item(), batch_size)
+            mono_loss_record.update(mono_loss.item(), batch_size)
             # loss_record7.update(ref_loss1.item(), batch_size)
             # loss_record8.update(ref_loss2.item(), batch_size)
             # loss_record9.update(ref_loss3.item(), batch_size)
 
+
             writer.add_scalars('Loss/train_hinge', {'loss_hinge_examplar': loss_record1.avg, 'loss_hinge_query': loss_record2.avg, 'loss_hinge_other': loss_record3.avg}, curr_iter)
             writer.add_scalars('Loss/train_final', {'loss_hinge1': loss_record4.avg, 'loss_hinge2': loss_record5.avg, 'loss_hinge3': loss_record6.avg,}, curr_iter)
+            writer.add_scalars('Loss/train_mono', {'mono_loss': mono_loss_record.avg}, curr_iter)
             #writer.add_scalars('Loss/train_ref', {'ref_loss1': loss_record7.avg, 'ref_loss2': loss_record8.avg, 'ref_loss3': loss_record9.avg,}, curr_iter)
+
             # if cmd_args.loss_ref_penalty > 0:
             #     writer.add_scalars('Loss/penalty', {'penalty1': penalty1.item(), 'penalty2': penalty2.item(), 'penalty3': penalty3.item()}, curr_iter)
             writer.add_scalars('lr', {'lr': scheduler.get_lr()[0]}, curr_iter)
@@ -389,9 +394,10 @@ def main(cmd_args):
             print('Visualization error !!')
 
         try:
-            current_mae = val(net, curr_epoch, val_loader, val_log_path, vis_save_path)
+            current_mae = val(net, curr_epoch, train_loader_subset, val_log_path, vis_save_path)
         except:
-            current_mae = val(net, curr_epoch, val_loader, val_log_path,)
+            current_mae = val(net, curr_epoch, train_loader_subset, val_log_path)
+
 
         writer.add_scalars('Validation', {'mae': current_mae}, curr_epoch)
 
@@ -440,18 +446,22 @@ def main(cmd_args):
         scheduler.step()  # change learning rate after epoch
 
 def val(net, epoch, val_loader, val_log_path, vis_save_path=None):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mae_record = AvgMeter()
     net.eval()
     with torch.no_grad():
         val_iterator = tqdm(val_loader)
         for i, sample in enumerate(val_iterator):
-            exemplar, query, other = sample['exemplar'].cuda(), sample['query'].cuda(), sample['other'].cuda()
-            exemplar_gt = sample['exemplar_gt'].cuda()
+            for k, v in sample.items():
+                if torch.is_tensor(v):
+                    sample[k] = v.to(device, non_blocking=True)
+
+            exemplar, query, other = sample[("color_full", 0, 0)], sample[("color_full", 1, 0)], sample[("color_full", -1, 0)]
+            exemplar_gt = sample[("gt_resized", 0)]
 
             B = exemplar_gt.shape[0]
 
-            # examplar_final, query_final, other_final = net(exemplar, query, other)
-            examplar_final, _, _ = net(exemplar, query, other)
+            examplar_final = net(exemplar, query, other, sample)
 
             res = (examplar_final.data > 0).to(torch.float32).squeeze(0)
             mae = torch.mean(torch.abs(res - exemplar_gt.squeeze(0)))
