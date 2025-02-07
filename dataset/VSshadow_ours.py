@@ -27,8 +27,6 @@ class CrossPairwiseImg(data.Dataset):
         self.enable_color_aug = enable_color_aug
         self.random_flip = random_flip
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
         self.input_folder = 'JPEGImages'
         self.label_folder = 'SegmentationClassPNG'
         self.img_ext = '.jpg'
@@ -171,6 +169,12 @@ class CrossPairwiseImg(data.Dataset):
         sample['exemplar_path'] = exemplar_path
         sample['query_path'] = query_path
         sample['other_path'] = other_path 
+
+        for i in self.frame_idxs:
+            del sample[("color", i, -1)]
+            del sample[("color_full", i, -1)]
+            del sample[("gt_full", i)]
+
 
         return sample
 

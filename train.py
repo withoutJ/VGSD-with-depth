@@ -108,8 +108,6 @@ def main(cmd_args):
         torch.cuda.set_device(0)
         batch_size = train_batch_size
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     print('batch_size: {}'.format(batch_size))
     print('batch_size: {}'.format(batch_size))
     print(args)
@@ -118,15 +116,16 @@ def main(cmd_args):
     print('=====>Dataset loading<======')
     training_root = [ViSha_training_root] # training_root should be a list form, like [datasetA, datasetB, datasetC], here we use only one dataset.
     train_set = CrossPairwiseImg(training_root)
-    train_subset = torch.utils.data.Subset(train_set, range(100))
-    train_loader_subset = DataLoader(train_subset, batch_size=batch_size, num_workers=1, shuffle=False)
+    # train_subset = torch.utils.data.Subset(train_set, range(100))
+    # train_loader_subset = DataLoader(train_subset, batch_size=batch_size, num_workers=1, shuffle=False)
     train_loader = DataLoader(train_set, ##### NOTE: more training data!!!!
-                            batch_size=batch_size,  drop_last=True, num_workers=4,  
+                            batch_size=batch_size,  drop_last=True, num_workers=cmd_args.num_workers,  
                             shuffle=True)
 
 
     val_set = CrossPairwiseImg([ViSha_test_root])
-    val_loader = DataLoader(val_set, batch_size=batch_size, num_workers=4, shuffle=True)   ## shuffle for better visualization
+    val_loader = DataLoader(val_set, batch_size=batch_size, num_workers=cmd_args.num_workers, shuffle=True)   ## shuffle for better visualization
+
 
     print("max epoch:{}".format(args['max_epoch']))
 
@@ -139,7 +138,7 @@ def main(cmd_args):
     print('=====>Prepare Network {}<======'.format(exp_name))
     # multi-GPUs training
     if len(gpu_ids.split(',')) > 1:
-        net = torch.nn.DataParallel(VGD_Network()).cuda().train()
+        net = torch.nn.DataParallel(VGD_Network(height=args['scale'], width=args['scale'])).cuda().train()
         model_without_ddp = net.module 
         # for name, param in net.named_parameters():
         #     if 'backbone' in name:
@@ -153,7 +152,7 @@ def main(cmd_args):
         ]
     # single-GPU training
     else:
-        net = VGD_Network().cuda().train()
+        net = VGD_Network(height=args['scale'], width=args['scale']).cuda().train()
         ## net = net.apply(freeze_bn) # freeze BN
         model_without_ddp = net 
         params = [
@@ -209,7 +208,7 @@ def main(cmd_args):
         loss_record5, loss_record6, loss_record7, loss_record8, loss_record9 = AvgMeter(), AvgMeter(), AvgMeter(), AvgMeter(), AvgMeter()
         loss_record10, loss_record11, loss_record12, loss_record13, loss_record14 = AvgMeter(), AvgMeter(), AvgMeter(), AvgMeter(), AvgMeter()
         mono_loss_record = AvgMeter()
-        train_iterator = tqdm(train_loader_subset, total=len(train_loader_subset))
+        train_iterator = tqdm(train_loader, total=len(train_loader))
         # train_iterator = tqdm(train_loader, desc=f'Epoch: {curr_epoch}', ncols=100, ascii=' =', bar_format='{l_bar}{bar}|')
         # tqdm(train_loader, total=len(train_loader))
 
@@ -243,7 +242,7 @@ def main(cmd_args):
         for i, sample in enumerate(train_iterator):
             for k, v in sample.items():
                 if torch.is_tensor(v):
-                    sample[k] = v.to(device, non_blocking=True)
+                    sample[k] = v.cuda()
 
             exemplar, exemplar_gt, query, query_gt = sample[("color_aug", 0, 0)], sample[("gt", 0)], sample[("color_aug", 1, 0)], sample[("gt", 1)]
             other, other_gt = sample[("color_aug", -1, 0)], sample[("gt", -1)]
@@ -394,9 +393,10 @@ def main(cmd_args):
             print('Visualization error !!')
 
         try:
-            current_mae = val(net, curr_epoch, train_loader_subset, val_log_path, vis_save_path)
+            current_mae = val(net, curr_epoch, val_loader, val_log_path, vis_save_path)
         except:
-            current_mae = val(net, curr_epoch, train_loader_subset, val_log_path)
+            current_mae = val(net, curr_epoch, val_loader, val_log_path)
+
 
 
         writer.add_scalars('Validation', {'mae': current_mae}, curr_epoch)
@@ -446,7 +446,6 @@ def main(cmd_args):
         scheduler.step()  # change learning rate after epoch
 
 def val(net, epoch, val_loader, val_log_path, vis_save_path=None):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mae_record = AvgMeter()
     net.eval()
     with torch.no_grad():
@@ -454,7 +453,8 @@ def val(net, epoch, val_loader, val_log_path, vis_save_path=None):
         for i, sample in enumerate(val_iterator):
             for k, v in sample.items():
                 if torch.is_tensor(v):
-                    sample[k] = v.to(device, non_blocking=True)
+                    sample[k] = v.cuda()
+
 
             exemplar, query, other = sample[("color_full", 0, 0)], sample[("color_full", 1, 0)], sample[("color_full", -1, 0)]
             exemplar_gt = sample[("gt_resized", 0)]
@@ -490,9 +490,9 @@ if __name__ == '__main__':
     parser.add_argument('--exp', type=str, default='VGD_baseline', help='exp name')
     parser.add_argument('--model', type=str, default='VGD_baseline', help='model name')
     parser.add_argument('--resume', type=str, default=None, help='model name')
-    parser.add_argument('--reflection_root', type=str, default='../VGD_dataset/reflection/train/', help='model name')
     parser.add_argument('--gpu', type=str, default='0', help='used gpu id')
     parser.add_argument('--batchsize', type=int, default=2, help='train batch')
+    parser.add_argument('--num_workers', type=int, default=4, help='number of workers to load data')
     parser.add_argument('--scale', type=int, default=416)
     parser.add_argument('--bestonly', action="store_true")
     parser.add_argument('--loss_ref_penalty', type=float, default=1)
