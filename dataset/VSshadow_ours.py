@@ -49,11 +49,10 @@ class CrossPairwiseImg(data.Dataset):
         self.frame_idxs = [0, 1, -1]
         self.num_scales = 4
 
-        # TODO Figure out real camera intrincis with COLMAP (these ones are for CityScapes)
-        self.fx = 2262.52
-        self.fy = 2265.3017905988554
-        self.u0 = 1096.98
-        self.v0 = 513.137
+        self.fx = 1534.56289
+        self.fy = 1534.56289
+        self.u0 = 960
+        self.v0 = 540
         
         self.to_tensor = transforms.ToTensor()
         self.resize = {}
@@ -139,6 +138,8 @@ class CrossPairwiseImg(data.Dataset):
             single_gt = Image.open(single_gt_path).convert('L')
 
         self.full_res_shape = exemplar.size
+        self.u0 = self.full_res_shape[0] / 2
+        self.v0 = self.full_res_shape[1] / 2
 
         do_color_aug = self.is_train and random.random() < 0.5 and self.enable_color_aug
         do_flip = self.is_train and random.random() < 0.5 and self.random_flip
