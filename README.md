@@ -16,7 +16,7 @@ python eval.py -pred ../results/pred  -gt ../VGSD_dataset/test
 ```
 
 ### Inference
-Download the trained model from the [VGSD.pth](https://drive.google.com/file/d/1PAcYNS9LsUd0E9QdUGOGQZcfebJVj8B0/view?usp=sharing) and run the following command to generate the predicted results.
+Download the trained model from the [VGSD_with_depth.pth](https://drive.google.com/file/d/1PAcYNS9LsUd0E9QdUGOGQZcfebJVj8B0/view?usp=sharing) and run the following command to generate the predicted results.
 
 ```bash
 python infer.py -pred ./results/ -exp ./checkpoints/VGSD_with_depth.pth 
