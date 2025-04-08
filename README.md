@@ -3,6 +3,13 @@
 Official code release of my final year project "Multi-view Dynamic Reflection Prior for Video Glass Surface Detection"
 
 
+### Requirements
+
+Install dependencies from pip freeze in python virtual environment as follows:
+```bash
+pip install -r requirements.txt
+```
+
 ### Dataest
 
 The training and testing dataset is available at [Google drive](https://drive.google.com/drive/folders/1QsdYI5Gwi-rKKwGgdE7GFTjhRO4-wIiI?usp=sharing). 
